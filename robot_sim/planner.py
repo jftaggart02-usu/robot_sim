@@ -12,8 +12,8 @@ from __future__ import annotations
 
 import math
 import random
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from dataclasses import dataclass
+from typing import List, Optional, Tuple
 
 from robot_sim.obstacles import segment_collides_with_any
 from robot_sim.types import Path, PolygonObstacle, VehicleState, Waypoint
@@ -175,13 +175,12 @@ def plan(
         if _dist(nx, ny, gx, gy) <= step_size:
             if _collision_free(nx, ny, gx, gy, obstacles):
                 goal_cost = best_cost + _dist(nx, ny, gx, gy)
-                if goal_idx is None or goal_cost < nodes[goal_idx].cost:
-                    if goal_idx is None:
-                        goal_idx = len(nodes)
-                        nodes.append(_Node(x=gx, y=gy, parent=new_idx, cost=goal_cost))
-                    else:
-                        nodes[goal_idx].parent = new_idx
-                        nodes[goal_idx].cost = goal_cost
+                if goal_idx is None:
+                    goal_idx = len(nodes)
+                    nodes.append(_Node(x=gx, y=gy, parent=new_idx, cost=goal_cost))
+                elif goal_cost < nodes[goal_idx].cost:
+                    nodes[goal_idx].parent = new_idx
+                    nodes[goal_idx].cost = goal_cost
 
     if goal_idx is None:
         return None

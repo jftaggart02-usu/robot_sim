@@ -21,17 +21,16 @@ from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 
 import matplotlib
-import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
-import numpy as np
+from matplotlib.animation import FuncAnimation
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
-from matplotlib.patches import FancyArrow, Polygon as MplPolygon
+from matplotlib.patches import Polygon as MplPolygon
+from matplotlib.text import Annotation
 
 from robot_sim.types import (
     Path,
-    PolygonObstacle,
     SimConfig,
     Trajectory,
     TrajectoryPoint,
@@ -45,6 +44,8 @@ from robot_sim.types import (
 
 @dataclass
 class DisplayState:
+    """Holds all matplotlib figure, axes, and artist references for the simulation display."""
+
     fig: Figure
     ax: Axes
     # Static artists (drawn once)
@@ -54,9 +55,9 @@ class DisplayState:
     goal_marker: Optional[Line2D] = None
     # Dynamic artists (updated each step)
     desired_marker: Optional[Line2D] = None
-    desired_arrow: Optional[FancyArrow] = None
+    desired_arrow: Optional[Annotation] = None
     vehicle_marker: Optional[Line2D] = None
-    vehicle_arrow: Optional[FancyArrow] = None
+    vehicle_arrow: Optional[Annotation] = None
     vehicle_trail: Optional[Line2D] = None
     # Trail history
     trail_x: List[float] = field(default_factory=list)
@@ -88,7 +89,8 @@ def init_display(
         for real-time updates.  Set to False for static / headless rendering.
     """
     if interactive:
-        matplotlib.use("TkAgg") if "TkAgg" in matplotlib.rcsetup.all_backends else None
+        if "TkAgg" in matplotlib.rcsetup.all_backends:
+            matplotlib.use("TkAgg")
         plt.ion()
 
     fig, ax = plt.subplots(figsize=(9, 9))
@@ -132,7 +134,9 @@ def init_display(
     ds.goal_marker = marker
 
     # --- Vehicle trail placeholder ---
-    (trail,) = ax.plot([], [], "-", color="salmon", linewidth=1.0, alpha=0.6, label="Vehicle trail", zorder=5)
+    (trail,) = ax.plot(
+        [], [], "-", color="salmon", linewidth=1.0, alpha=0.6, label="Vehicle trail", zorder=5
+    )
     ds.vehicle_trail = trail
 
     # --- Desired state placeholder ---
@@ -194,7 +198,7 @@ def update_display(
         "",
         xy=(desired.x + dx, desired.y + dy),
         xytext=(desired.x, desired.y),
-        arrowprops=dict(arrowstyle="->", color="limegreen", lw=1.5),
+        arrowprops={"arrowstyle": "->", "color": "limegreen", "lw": 1.5},
         zorder=7,
     )
 
@@ -211,7 +215,7 @@ def update_display(
         "",
         xy=(vehicle.x + vx, vehicle.y + vy),
         xytext=(vehicle.x, vehicle.y),
-        arrowprops=dict(arrowstyle="->", color="red", lw=2.0),
+        arrowprops={"arrowstyle": "->", "color": "red", "lw": 2.0},
         zorder=8,
     )
 
@@ -271,17 +275,16 @@ def animate_display(
         Sub-sampling stride.  ``step=1`` uses every recorded state;
         ``step=5`` uses every fifth state, reducing file size.
     """
-    from matplotlib.animation import FuncAnimation
-
     if not history:
         return
 
     ds = init_display(config, path, trajectory, interactive=False)
     frames = history[::step]
 
-    def _update(frame_data: Tuple[TrajectoryPoint, VehicleState]) -> None:
+    def _update(frame_data: Tuple[TrajectoryPoint, VehicleState]) -> List[Line2D]:
         desired, vehicle = frame_data
         update_display(ds, desired, vehicle, interactive=False)
+        return []
 
     anim = FuncAnimation(
         ds.fig,
