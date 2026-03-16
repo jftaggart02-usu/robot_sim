@@ -14,4 +14,4 @@ Data-oriented Design:
 When modifying code:
 1. Run `bash ./scripts/run_lint.sh` and fix errors and warnings.
 2. Run `bash ./scripts/run_tests.sh` and update tests if necessary.
-3. Update `README.md` if needed.
+3. Update documentation in `README.md` if necessary.
