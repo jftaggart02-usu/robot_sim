@@ -36,19 +36,14 @@ cd robot_sim
 ### 2. Create a Virtual Environment
 
 ```bash
-python -m venv .venv
+python3 -m venv .venv
 ```
 
 Activate the environment:
 
-- **macOS / Linux**
-  ```bash
-  source .venv/bin/activate
-  ```
-- **Windows (PowerShell)**
-  ```powershell
-  .\.venv\Scripts\Activate.ps1
-  ```
+```bash
+source .venv/bin/activate
+```
 
 ### 3. Install Dependencies
 
@@ -546,7 +541,6 @@ close_display(ds)
 The test suite uses [pytest](https://docs.pytest.org/):
 
 ```bash
-pip install pytest          # if not already installed
 pytest tests/ -v
 ```
 
