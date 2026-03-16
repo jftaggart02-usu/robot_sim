@@ -1,27 +1,9 @@
-# Python byte-code
+*.png
+*.gif
 __pycache__/
 *.pyc
-*.pyo
-*.pyd
-
-# Pytest cache
 .pytest_cache/
-
-# Simulation output images
-sim_result.png
-
-# Virtual environments
-.venv/
-venv/
-env/
-
-# Distribution / packaging
+*.egg-info/
 dist/
 build/
-*.egg-info/
-
-# Jupyter notebooks
-.ipynb_checkpoints/
-
-.vscode
-.mypy_cache
+.venv/

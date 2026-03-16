@@ -8,6 +8,11 @@ libraries beyond pytest are required.
 from __future__ import annotations
 
 import math
+import os
+import tempfile
+
+import matplotlib
+matplotlib.use("Agg")  # headless rendering for all tests
 
 import pytest
 
@@ -213,3 +218,58 @@ def test_planner_avoids_obstacles():
     for i in range(len(path.waypoints) - 1):
         w1, w2 = path.waypoints[i], path.waypoints[i + 1]
         assert not segment_collides_with_obstacle((w1.x, w1.y), (w2.x, w2.y), wall)
+
+
+# ---------------------------------------------------------------------------
+# Visualizer / animation
+# ---------------------------------------------------------------------------
+
+def _make_small_sim():
+    """Return a minimal (config, path, trajectory, history) for visualizer tests."""
+    path = Path(waypoints=[Waypoint(0.0, 0.0), Waypoint(2.0, 0.0)])
+    traj = build_trajectory(path, cruise_speed=1.0)
+    config = SimConfig(
+        initial_state=VehicleState(x=0.0, y=0.0, theta=0.0, v=0.0),
+        goal=(2.0, 0.0),
+        obstacles=[],
+        bounds=(0.0, 5.0, 0.0, 5.0),
+    )
+    state = VehicleState(x=0.0, y=0.0, theta=0.0, v=0.0)
+    history = []
+    for i in range(5):
+        desired = traj.points[0]
+        history.append((desired, state))
+    return config, path, traj, history
+
+
+def test_animate_display_creates_gif():
+    """animate_display should write a non-empty GIF file."""
+    from robot_sim.visualizer import animate_display
+
+    config, path, traj, history = _make_small_sim()
+    with tempfile.NamedTemporaryFile(suffix=".gif", delete=False) as f:
+        out = f.name
+    try:
+        animate_display(config, path, traj, history, filepath=out, fps=5, step=1)
+        assert os.path.exists(out)
+        assert os.path.getsize(out) > 0
+    finally:
+        if os.path.exists(out):
+            os.unlink(out)
+
+
+def test_animate_display_empty_history():
+    """animate_display should silently return when history is empty."""
+    from robot_sim.visualizer import animate_display
+
+    config, path, traj, _ = _make_small_sim()
+    with tempfile.NamedTemporaryFile(suffix=".gif", delete=False) as f:
+        out = f.name
+    os.unlink(out)  # ensure it doesn't exist yet
+    try:
+        animate_display(config, path, traj, [], filepath=out, fps=5)
+        # File should NOT be created for empty history.
+        assert not os.path.exists(out)
+    finally:
+        if os.path.exists(out):
+            os.unlink(out)

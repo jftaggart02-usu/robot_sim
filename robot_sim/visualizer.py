@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import matplotlib
 import matplotlib.patches as mpatches
@@ -238,3 +238,59 @@ def save_display(ds: DisplayState, filepath: str) -> None:
 def close_display(ds: DisplayState) -> None:
     """Close the matplotlib figure."""
     plt.close(ds.fig)
+
+
+# ---------------------------------------------------------------------------
+# Post-simulation animation
+# ---------------------------------------------------------------------------
+
+def animate_display(
+    config: SimConfig,
+    path: Path,
+    trajectory: Trajectory,
+    history: List[Tuple[TrajectoryPoint, VehicleState]],
+    filepath: str = "sim_animation.gif",
+    fps: int = 20,
+    step: int = 1,
+) -> None:
+    """Create and save a post-simulation animation from recorded states.
+
+    Parameters
+    ----------
+    config, path, trajectory:
+        Passed directly to :func:`init_display` to draw static elements.
+    history:
+        Ordered list of ``(desired, vehicle)`` state pairs recorded during
+        the simulation.  Every *step*-th entry becomes one animation frame.
+    filepath:
+        Output file.  The format is inferred from the extension
+        (``.gif`` requires *Pillow*; ``.mp4`` requires *ffmpeg*).
+    fps:
+        Playback frame rate (frames per second).
+    step:
+        Sub-sampling stride.  ``step=1`` uses every recorded state;
+        ``step=5`` uses every fifth state, reducing file size.
+    """
+    from matplotlib.animation import FuncAnimation
+
+    if not history:
+        return
+
+    ds = init_display(config, path, trajectory, interactive=False)
+    frames = history[::step]
+
+    def _update(frame_data: Tuple[TrajectoryPoint, VehicleState]) -> None:
+        desired, vehicle = frame_data
+        update_display(ds, desired, vehicle, interactive=False)
+
+    anim = FuncAnimation(
+        ds.fig,
+        _update,
+        frames=frames,
+        interval=int(1000 / fps),
+        blit=False,
+        repeat=False,
+    )
+
+    anim.save(filepath, fps=fps)
+    close_display(ds)
