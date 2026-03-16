@@ -22,3 +22,6 @@ build/
 
 # Jupyter notebooks
 .ipynb_checkpoints/
+
+.vscode
+.mypy_cache
