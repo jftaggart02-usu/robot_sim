@@ -320,6 +320,7 @@ class _RobotArtists:
     trail_y: List[float] = field(default_factory=list)
 
 
+# #APPLE
 @dataclass
 class MultiRobotDisplayState:
     """Holds figure/axes and per-robot artist groups for the multi-robot display."""
