@@ -230,8 +230,8 @@ def build_multi_robot_config() -> MultiRobotSimConfig:
             rrt_seed=42,
         ),
         RobotConfig(
-            initial_state=VehicleState(x=9.5, y=0.5, theta=math.pi, v=0.0),
-            goal=(0.5, 9.5),
+            initial_state=VehicleState(x=6.5, y=1.0, theta=math.pi/2, v=0.0),
+            goal=(0.0, 6.5),
             label="Robot B",
             color="crimson",
             rrt_max_iter=5000,
@@ -252,7 +252,7 @@ def build_multi_robot_config() -> MultiRobotSimConfig:
         obstacles=obstacles,
         bounds=(0.0, 10.0, 0.0, 10.0),
         dt=0.05,
-        max_time=120.0,
+        max_time=10.0,
     )
 
 
