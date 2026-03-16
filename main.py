@@ -24,11 +24,21 @@ independently.
 
 from __future__ import annotations
 
+import argparse
 import math
 import sys
+from typing import List, Tuple
 
+# Set the matplotlib backend before any pyplot import.
+# Parse --interactive with a minimal pre-parser so that argparse semantics
+# are used (rather than a raw sys.argv string check) and the backend is
+# correctly chosen before matplotlib.pyplot is imported.
 import matplotlib
-matplotlib.use("Agg")  # Use non-interactive backend for headless execution.
+_pre = argparse.ArgumentParser(add_help=False)
+_pre.add_argument("--interactive", action="store_true")
+_pre_args, _ = _pre.parse_known_args()
+if not _pre_args.interactive:
+    matplotlib.use("Agg")  # headless rendering unless a live window is requested
 
 from robot_sim.controller import compute_control
 from robot_sim.dynamics import step as dynamics_step
@@ -38,9 +48,11 @@ from robot_sim.types import (
     PIDControllerState,
     PolygonObstacle,
     SimConfig,
+    TrajectoryPoint,
     VehicleState,
 )
 from robot_sim.visualizer import (
+    animate_display,
     close_display,
     init_display,
     save_display,
@@ -87,7 +99,12 @@ def build_config() -> SimConfig:
 # Simulation loop
 # ---------------------------------------------------------------------------
 
-def run_simulation(config: SimConfig, save_path: str = "sim_result.png") -> None:
+def run_simulation(
+    config: SimConfig,
+    save_path: str = "sim_result.png",
+    animate_path: str = "sim_animation.gif",
+    interactive: bool = False,
+) -> None:
     """Execute the full simulation pipeline."""
 
     # --- 1. Motion planning ---
@@ -114,13 +131,14 @@ def run_simulation(config: SimConfig, save_path: str = "sim_result.png") -> None
           f"duration = {trajectory.points[-1].t:.1f} s")
 
     # --- 3. Visualizer initialisation ---
-    display = init_display(config, path, trajectory, interactive=False)
+    display = init_display(config, path, trajectory, interactive=interactive)
 
     # --- 4. Main simulation loop ---
     state = config.initial_state
     pid_state = PIDControllerState()
     t = 0.0
     step_count = 0
+    history: List[Tuple[TrajectoryPoint, VehicleState]] = []
 
     print("Simulating …")
     while t <= config.max_time:
@@ -145,9 +163,11 @@ def run_simulation(config: SimConfig, save_path: str = "sim_result.png") -> None
             max_omega=config.max_omega,
         )
 
+        history.append((desired, state))
+
         # Redraw every 5 steps to reduce overhead.
         if step_count % 5 == 0:
-            update_display(display, desired, state, interactive=False)
+            update_display(display, desired, state, interactive=interactive)
 
         t += config.dt
         step_count += 1
@@ -161,12 +181,19 @@ def run_simulation(config: SimConfig, save_path: str = "sim_result.png") -> None
         print(f"  Simulation ended at max_time = {config.max_time} s")
 
     # Final display update with the terminal state.
-    update_display(display, sample_trajectory(trajectory, t), state, interactive=False)
+    final_desired = sample_trajectory(trajectory, t)
+    update_display(display, final_desired, state, interactive=interactive)
 
-    # --- 5. Save result ---
+    # --- 5. Save static result ---
     save_display(display, save_path)
     print(f"  Saved visualisation → {save_path}")
     close_display(display)
+
+    # --- 6. Post-simulation animation ---
+    if animate_path:
+        print("Generating animation …")
+        animate_display(config, path, trajectory, history, filepath=animate_path)
+        print(f"  Saved animation → {animate_path}")
 
 
 # ---------------------------------------------------------------------------
@@ -174,5 +201,43 @@ def run_simulation(config: SimConfig, save_path: str = "sim_result.png") -> None
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Robot simulation demo.")
+    parser.add_argument(
+        "--interactive",
+        action="store_true",
+        help="Show a live matplotlib window during simulation.",
+    )
+    parser.add_argument(
+        "--save-path",
+        default="sim_result.png",
+        metavar="FILE",
+        help="Output path for the final static image (default: sim_result.png).",
+    )
+    anim_group = parser.add_mutually_exclusive_group()
+    anim_group.add_argument(
+        "--animate",
+        nargs="?",
+        const="sim_animation.gif",
+        default="sim_animation.gif",
+        metavar="FILE",
+        help=(
+            "Save a post-simulation animation to FILE "
+            "(default: sim_animation.gif)."
+        ),
+    )
+    anim_group.add_argument(
+        "--no-animate",
+        action="store_const",
+        dest="animate",
+        const=None,
+        help="Skip saving the animation.",
+    )
+    args = parser.parse_args()
+
     config = build_config()
-    run_simulation(config, save_path="sim_result.png")
+    run_simulation(
+        config,
+        save_path=args.save_path,
+        animate_path=args.animate,
+        interactive=args.interactive,
+    )
