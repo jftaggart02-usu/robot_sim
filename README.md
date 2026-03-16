@@ -61,6 +61,8 @@ The project requires Python 3.9+ and the following packages (pinned in `requirem
 
 ### 4. Run the Simulation
 
+**Single robot (default):**
+
 ```bash
 python main.py
 ```
@@ -72,6 +74,23 @@ The script:
 3. Converts the path to a time-indexed trajectory.
 4. Enters the main simulation loop — sample desired state → PID control → unicycle dynamics → display update.
 5. Saves a final screenshot to `sim_result.png` in the working directory.
+
+**Multiple robots simultaneously:**
+
+```bash
+python main.py --multi-robot
+```
+
+Each robot gets its own RRT* plan, trajectory, and PID controller instance that are all stepped together at every simulation tick. Results are saved to `sim_multi_result.png` and (by default) `sim_multi_animation.gif`.
+
+**Common flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--multi-robot` | Run the 3-robot demo instead of the single-robot demo |
+| `--interactive` | Show a live matplotlib window during simulation |
+| `--save-path FILE` | Override the output image path |
+| `--no-animate` | Skip saving the GIF animation |
 
 ---
 
@@ -235,7 +254,50 @@ class SimConfig:
     pid: PIDControllerConfig = ...                   # default: kp=2.5/1.5, ki=0/0.1, kd=0.3/0.05
 ```
 
-Top-level simulation configuration provided by the user.
+Top-level configuration for a **single-robot** simulation.
+
+---
+
+#### `RobotConfig`
+
+```python
+@dataclass
+class RobotConfig:
+    initial_state: VehicleState
+    goal: Tuple[float, float]          # (x, y) goal position
+    label: str = ""                    # display label (e.g. "Robot A")
+    color: str = "red"                 # marker/trail color for the visualizer
+    goal_color: Optional[str] = None   # goal-star color (defaults to color)
+    cruise_speed: float = 1.5          # nominal travel speed  (m/s)
+    max_speed: float = 3.0             # speed saturation  (m/s)
+    max_accel: float = 2.0             # acceleration saturation  (m/s²)
+    max_omega: float = 1.5             # angular-velocity saturation  (rad/s)
+    goal_tolerance: float = 0.3        # distance to consider goal reached  (m)
+    rrt_max_iter: int = 3000
+    rrt_step_size: float = 0.5
+    rrt_goal_bias: float = 0.1
+    rrt_neighbor_radius: float = 1.5
+    rrt_seed: Optional[int] = None     # reproducible RRT* seed (None = non-deterministic)
+    pid: PIDControllerConfig = ...     # per-robot PID gains
+```
+
+Per-robot configuration for a **multi-robot** simulation. Each `RobotConfig` holds its own start state, goal, motion parameters, PID gains, and visual style.
+
+---
+
+#### `MultiRobotSimConfig`
+
+```python
+@dataclass
+class MultiRobotSimConfig:
+    robots: List[RobotConfig]
+    obstacles: List[PolygonObstacle]
+    bounds: Tuple[float, float, float, float]  # (x_min, x_max, y_min, y_max)
+    dt: float = 0.05                           # simulation timestep  (s)
+    max_time: float = 60.0                     # maximum simulation duration  (s)
+```
+
+Top-level configuration for a **multi-robot** simulation. Shared environment settings (obstacles, workspace bounds, timestep) live here; per-robot settings live inside each `RobotConfig`.
 
 ---
 
@@ -534,6 +596,48 @@ save_display(ds, "result.png")
 close_display(ds)
 ```
 
+#### Multi-robot display functions
+
+For multi-robot scenarios, use the parallel set of functions that accept `MultiRobotSimConfig` and per-robot lists:
+
+```python
+def init_multi_display(
+    config: MultiRobotSimConfig,
+    paths: List[Path],
+    trajectories: List[Trajectory],
+    interactive: bool = True,
+) -> MultiRobotDisplayState:
+```
+
+```python
+def update_multi_display(
+    mds: MultiRobotDisplayState,
+    desired_states: List[TrajectoryPoint],
+    vehicle_states: List[VehicleState],
+    pause: float = 0.001,
+    interactive: bool = True,
+) -> None:
+```
+
+```python
+def save_multi_display(mds: MultiRobotDisplayState, filepath: str) -> None:
+def close_multi_display(mds: MultiRobotDisplayState) -> None:
+```
+
+```python
+def animate_multi_display(
+    config: MultiRobotSimConfig,
+    paths: List[Path],
+    trajectories: List[Trajectory],
+    history: List[List[Tuple[TrajectoryPoint, VehicleState]]],
+    filepath: str = "sim_multi_animation.gif",
+    fps: int = 20,
+    step: int = 1,
+) -> None:
+```
+
+`history[i]` is the ordered list of `(desired, vehicle)` pairs recorded for robot `i` during the simulation.
+
 ---
 
 ## Running the Tests
@@ -544,5 +648,5 @@ The test suite uses [pytest](https://docs.pytest.org/):
 pytest tests/ -v
 ```
 
-All tests are in `tests/test_sim.py` and cover obstacles, dynamics, trajectory, controller, and the planner (integration).
+All tests are in `tests/test_sim.py` and cover obstacles, dynamics, trajectory, controller, the planner (integration), and multi-robot types and visualizer functions.
 

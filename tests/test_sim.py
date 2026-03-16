@@ -28,10 +28,12 @@ from robot_sim.planner import plan
 from robot_sim.trajectory import build_trajectory, sample_trajectory
 from robot_sim.types import (
     ControlInput,
+    MultiRobotSimConfig,
     PIDControllerConfig,
     PIDControllerState,
     PIDGains,
     PolygonObstacle,
+    RobotConfig,
     SimConfig,
     TrajectoryPoint,
     VehicleState,
@@ -269,6 +271,157 @@ def test_animate_display_empty_history():
     try:
         animate_display(config, path, traj, [], filepath=out, fps=5)
         # File should NOT be created for empty history.
+        assert not os.path.exists(out)
+    finally:
+        if os.path.exists(out):
+            os.unlink(out)
+
+
+# ---------------------------------------------------------------------------
+# Multi-robot types
+# ---------------------------------------------------------------------------
+
+def test_robot_config_defaults():
+    """RobotConfig should have sensible default values."""
+    state = VehicleState(x=0.0, y=0.0, theta=0.0, v=0.0)
+    robot = RobotConfig(initial_state=state, goal=(5.0, 5.0))
+    assert robot.label == ""
+    assert robot.color == "red"
+    assert robot.cruise_speed == 1.5
+    assert robot.goal_tolerance == 0.3
+    assert robot.goal_color is None
+
+
+def test_multi_robot_sim_config_holds_robots():
+    """MultiRobotSimConfig should store all robots and shared environment."""
+    robots = [
+        RobotConfig(
+            initial_state=VehicleState(x=0.0, y=0.0, theta=0.0, v=0.0),
+            goal=(5.0, 5.0),
+            label="R0",
+            color="blue",
+        ),
+        RobotConfig(
+            initial_state=VehicleState(x=5.0, y=0.0, theta=math.pi, v=0.0),
+            goal=(0.0, 5.0),
+            label="R1",
+            color="green",
+        ),
+    ]
+    config = MultiRobotSimConfig(
+        robots=robots,
+        obstacles=[SQUARE_OBS],
+        bounds=(0.0, 10.0, 0.0, 10.0),
+        dt=0.05,
+        max_time=30.0,
+    )
+    assert len(config.robots) == 2
+    assert config.robots[0].label == "R0"
+    assert config.robots[1].label == "R1"
+    assert config.dt == 0.05
+    assert config.max_time == 30.0
+
+
+# ---------------------------------------------------------------------------
+# Multi-robot visualizer
+# ---------------------------------------------------------------------------
+
+def _make_multi_sim():
+    """Return a minimal multi-robot (config, paths, trajectories, history) for tests."""
+    path_a = Path(waypoints=[Waypoint(0.0, 0.0), Waypoint(2.0, 0.0)])
+    path_b = Path(waypoints=[Waypoint(2.0, 2.0), Waypoint(0.0, 2.0)])
+    traj_a = build_trajectory(path_a, cruise_speed=1.0)
+    traj_b = build_trajectory(path_b, cruise_speed=1.0)
+
+    robots = [
+        RobotConfig(
+            initial_state=VehicleState(x=0.0, y=0.0, theta=0.0, v=0.0),
+            goal=(2.0, 0.0),
+            label="R0",
+            color="blue",
+        ),
+        RobotConfig(
+            initial_state=VehicleState(x=2.0, y=2.0, theta=math.pi, v=0.0),
+            goal=(0.0, 2.0),
+            label="R1",
+            color="green",
+        ),
+    ]
+    config = MultiRobotSimConfig(
+        robots=robots,
+        obstacles=[],
+        bounds=(0.0, 5.0, 0.0, 5.0),
+    )
+
+    state_a = VehicleState(x=0.0, y=0.0, theta=0.0, v=0.0)
+    state_b = VehicleState(x=2.0, y=2.0, theta=math.pi, v=0.0)
+    history = [
+        [(traj_a.points[0], state_a) for _ in range(5)],
+        [(traj_b.points[0], state_b) for _ in range(5)],
+    ]
+    return config, [path_a, path_b], [traj_a, traj_b], history
+
+
+def test_init_multi_display():
+    """init_multi_display should create a MultiRobotDisplayState with one artist group per robot."""
+    from robot_sim.visualizer import (
+        MultiRobotDisplayState,
+        close_multi_display,
+        init_multi_display,
+    )
+
+    config, paths, trajs, _ = _make_multi_sim()
+    mds = init_multi_display(config, paths, trajs, interactive=False)
+    assert isinstance(mds, MultiRobotDisplayState)
+    assert len(mds.robots) == len(config.robots)
+    close_multi_display(mds)
+
+
+def test_update_multi_display():
+    """update_multi_display should update all robot artists without error."""
+    from robot_sim.visualizer import (
+        close_multi_display,
+        init_multi_display,
+        update_multi_display,
+    )
+
+    config, paths, trajs, history = _make_multi_sim()
+    mds = init_multi_display(config, paths, trajs, interactive=False)
+    desired = [h[0][0] for h in history]
+    vehicles = [h[0][1] for h in history]
+    update_multi_display(mds, desired, vehicles, interactive=False)
+    # Trail should have grown.
+    assert len(mds.robots[0].trail_x) == 1
+    assert len(mds.robots[1].trail_x) == 1
+    close_multi_display(mds)
+
+
+def test_animate_multi_display_creates_gif():
+    """animate_multi_display should write a non-empty GIF file."""
+    from robot_sim.visualizer import animate_multi_display
+
+    config, paths, trajs, history = _make_multi_sim()
+    with tempfile.NamedTemporaryFile(suffix=".gif", delete=False) as f:
+        out = f.name
+    try:
+        animate_multi_display(config, paths, trajs, history, filepath=out, fps=5, step=1)
+        assert os.path.exists(out)
+        assert os.path.getsize(out) > 0
+    finally:
+        if os.path.exists(out):
+            os.unlink(out)
+
+
+def test_animate_multi_display_empty_history():
+    """animate_multi_display should silently return when history is empty."""
+    from robot_sim.visualizer import animate_multi_display
+
+    config, paths, trajs, _ = _make_multi_sim()
+    with tempfile.NamedTemporaryFile(suffix=".gif", delete=False) as f:
+        out = f.name
+    os.unlink(out)
+    try:
+        animate_multi_display(config, paths, trajs, [[], []], filepath=out, fps=5)
         assert not os.path.exists(out)
     finally:
         if os.path.exists(out):

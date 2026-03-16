@@ -8,7 +8,7 @@ modules (planner.py, controller.py, dynamics.py, …).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 
 # ---------------------------------------------------------------------------
@@ -144,3 +144,60 @@ class SimConfig:
             speed_gains=PIDGains(kp=1.5, ki=0.1, kd=0.05),
         )
     )
+
+
+# ---------------------------------------------------------------------------
+# Multi-robot configuration
+# ---------------------------------------------------------------------------
+
+@dataclass
+class RobotConfig:
+    """Per-robot configuration for a multi-robot simulation.
+
+    Each robot has its own start state, goal, motion parameters, PID gains,
+    and visual style.  Environment settings (obstacles, bounds, timestep) are
+    shared and live in :class:`MultiRobotSimConfig`.
+    """
+    initial_state: VehicleState
+    goal: Tuple[float, float]          # (x, y) goal position
+    label: str = ""                    # optional display label
+    color: str = "red"                 # marker / trail color for the visualizer
+    cruise_speed: float = 1.5          # nominal travel speed along trajectory  (m/s)
+    max_speed: float = 3.0             # speed saturation limit  (m/s)
+    max_accel: float = 2.0             # acceleration saturation limit  (m/s²)
+    max_omega: float = 1.5             # angular-velocity saturation limit  (rad/s)
+    goal_tolerance: float = 0.3        # distance to consider goal reached  (m)
+
+    # RRT* planner parameters
+    rrt_max_iter: int = 3000
+    rrt_step_size: float = 0.5
+    rrt_goal_bias: float = 0.1
+    rrt_neighbor_radius: float = 1.5
+
+    # RRT* random seed (None → non-deterministic)
+    rrt_seed: Optional[int] = None
+
+    # PID controller
+    pid: PIDControllerConfig = field(
+        default_factory=lambda: PIDControllerConfig(
+            heading_gains=PIDGains(kp=2.5, ki=0.0, kd=0.3),
+            speed_gains=PIDGains(kp=1.5, ki=0.1, kd=0.05),
+        )
+    )
+
+    # Goal marker color (defaults to color when None)
+    goal_color: Optional[str] = None
+
+
+@dataclass
+class MultiRobotSimConfig:
+    """Top-level configuration for a simultaneous multi-robot simulation.
+
+    Shared environment settings are stored here; per-robot settings live in
+    each :class:`RobotConfig` within :attr:`robots`.
+    """
+    robots: List[RobotConfig]
+    obstacles: List[PolygonObstacle]
+    bounds: Tuple[float, float, float, float]  # (x_min, x_max, y_min, y_max)
+    dt: float = 0.05                           # simulation timestep  (s)
+    max_time: float = 60.0                     # maximum simulation duration  (s)
