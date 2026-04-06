@@ -104,9 +104,13 @@ robot_sim/
 │   ├── __init__.py
 │   ├── types.py          # Shared dataclasses (pure data)
 │   ├── obstacles.py      # Polygon collision-detection helpers
-│   ├── planner.py        # RRT* motion planner
+│   ├── planners/         # Planning strategies
+│   │   ├── __init__.py
+│   │   └── rrt_star.py   # RRT* motion planner
 │   ├── trajectory.py     # Time-indexed trajectory generation
-│   ├── controller.py     # PID controller
+│   ├── controllers/      # Control strategies
+│   │   ├── __init__.py
+│   │   └── pid.py        # PID controller
 │   ├── dynamics.py       # Unicycle-model forward dynamics
 │   └── visualizer.py     # matplotlib real-time display
 └── tests/
@@ -355,7 +359,7 @@ Convert a `PolygonObstacle` to a Shapely `Polygon` for custom geometry queries.
 
 ---
 
-### `robot_sim.planner`
+### `robot_sim.planners.rrt_star`
 
 RRT* (Rapidly-exploring Random Tree Star) motion planner.
 
@@ -392,7 +396,7 @@ Run RRT* and return a collision-free `Path`, or `None` if planning fails within 
 **Example**
 
 ```python
-from robot_sim.planner import plan
+from robot_sim.planners.rrt_star import plan
 from robot_sim.types import VehicleState, PolygonObstacle
 
 start = VehicleState(x=0.5, y=0.5, theta=0.0, v=0.0)
@@ -442,7 +446,7 @@ print(desired.x, desired.y, desired.theta, desired.v)
 
 ---
 
-### `robot_sim.controller`
+### `robot_sim.controllers.pid`
 
 PID controller for unicycle-model vehicles (pure functions).
 
@@ -474,7 +478,7 @@ The caller is responsible for threading the returned `PIDControllerState` forwar
 **Example**
 
 ```python
-from robot_sim.controller import compute_control
+from robot_sim.controllers.pid import compute_control
 from robot_sim.types import PIDControllerState
 
 pid_state = PIDControllerState()

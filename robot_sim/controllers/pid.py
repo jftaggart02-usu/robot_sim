@@ -1,5 +1,4 @@
-"""
-controller.py — PID controller for unicycle-model vehicles (pure functions).
+"""pid.py — PID controller for unicycle-model vehicles (pure functions).
 
 Two independent PID channels are used:
   * Heading channel → produces omega (angular velocity, rad/s)

@@ -40,9 +40,9 @@ _pre_args, _ = _pre.parse_known_args()
 if not _pre_args.interactive:
     matplotlib.use("Agg")  # headless rendering unless a live window is requested
 
-from robot_sim.controller import compute_control
+from robot_sim.controllers.pid import compute_control
 from robot_sim.dynamics import step as dynamics_step
-from robot_sim.planner import plan
+from robot_sim.planners.rrt_star import plan
 from robot_sim.trajectory import build_trajectory, sample_trajectory
 from robot_sim.types import (
     MultiRobotSimConfig,

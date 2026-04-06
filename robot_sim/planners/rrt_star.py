@@ -1,5 +1,4 @@
-"""
-planner.py — RRT* motion planner (pure functions).
+"""rrt_star.py — RRT* motion planner (pure functions).
 
 The planner takes a start position, goal position, obstacle list, and
 workspace bounds, and returns a :class:`~robot_sim.types.Path` of
